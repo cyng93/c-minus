@@ -1,3 +1,6 @@
+*.yy.c
 test.c
 *.pdf
 .DS_Store
+scanner
+C-c-test

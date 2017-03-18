@@ -15,18 +15,20 @@ char str_buf[MAX_LINE_LENGTH];
 
 nonzero_digit [1-9]
 digit   [0-9]
-letter  [a-zA-Z]
+letter  [a-zA-Z_]
 whitespace   [ \t]
 keyword "while"|"do"|"if"|"else"|"true"|"false"|"for"|"int"|"print"|"const"|"read"|"boolean"|"bool"|"void"|"float"|"double"|"string"|"continue"|"break"|"return"
 delimiter ","|";"|"("|")"|"["|"]"|"{"|"}"
 operators "+"|"-"|"*"|"/"|"%"|"="|"<"|"<="|"!="|">="|">"|"=="|"&&"|"||"|"!"
-identifier {letter}+{digit}*
+identifier {letter}+({digit}|{letter})*
+printable ([\40-\176])
 string ([\40-\41]|[\43-\133]|[\135-\176])*
+    //42 is double quoted, 134 is backslash
 integer (0|{nonzero_digit}{digit}*)
-float ({digit}\.{digit}{digit}*)
-scientific 0?{float}[eE][+-]?{digit}
+float ({digit}+\.{digit}+)
+scientific ({integer}|{float})[eE][+-]?[0]?{integer}
 
-%Start STR_BEGIN STR_ESCAPE
+%Start STR_BEGIN STR_ESCAPE BLOCK_BEGIN
     //INITIAL
 
 %%
@@ -42,67 +44,85 @@ scientific 0?{float}[eE][+-]?{digit}
     LIST;
 }
 
-"//"{string}/\n { // inline comment is followed by newline
+<INITIAL>"//"{printable}*/\n { // inline comment is followed by newline
     LIST;
 }
 
-{delimiter} {
+<INITIAL>"/*" { // block comment start
+    LIST;
+    BEGIN(BLOCK_BEGIN);
+    //printf("yytext:\"%s\" state: block start\n", yytext);
+}
+
+<BLOCK_BEGIN>{printable} {  // in block comment
+    LIST;
+    //printf("yytext:\"%s\" state: printable in block\n", yytext);
+}
+
+<BLOCK_BEGIN>"*/" { // last two char of block comment
+    LIST;
+    BEGIN(INITIAL);
+    //printf("yytext:\"%s\" state: block end\n", yytext);
+}
+
+<INITIAL>{delimiter} {
     tokenString("delim", yytext); 
 }
 
-{operators} {
+<INITIAL>{operators} {
     token(yytext);
 }
 
-{keyword} {
+<INITIAL>{keyword} {
     tokenString("KW", yytext);
 }
 
-{identifier} {
+<INITIAL>{identifier} {
     tokenString("id", yytext);
 }
 
-{integer} {
+<INITIAL>{integer} {
     tokenString("integer", yytext);
 }
 
-{float} {
+<INITIAL>{float} {
     tokenString("float", yytext);
 }
 
-{scientific} {
+<INITIAL>{scientific} {
     tokenString("scientific", yytext);
 }
 
-<STR_ESCAPE>(\"|\\) { // when \" or \\ is found
+<STR_ESCAPE>(\"|\\) { // when " or \ is found
     LIST;
     STR_BUF;
     BEGIN(STR_BEGIN);
-    //printf("yytext:%s state: str_escape -> str_begin\n", yytext);
+    //printf("yytext:\"%s\" state: str escape end\n", yytext);
 }
 
 <STR_BEGIN>(\") { // end state
     BEGIN(INITIAL);
     tokenString("string", str_buf);
-    //printf("yytext:%s state: str_begin -> initial\n", yytext);
+    //printf("yytext:\"%s\" state: str end\n", yytext);
 }
 
 <STR_BEGIN>(\\) { // when \ is found
     LIST;
     BEGIN(STR_ESCAPE);
-    //printf("yytext:%s state: str_begin -> str_escape\n", yytext);
+    //printf("yytext:\"%s\" state: str escape begin\n", yytext);
 }
 
 <INITIAL>(\") {
     LIST;
     BEGIN(STR_BEGIN);
-    //printf("yytext:%s state: initial -> str_begin\n", yytext);
+    str_buf[0] = '\0';
+    //printf("yytext:\"%s\" state: str begin\n", yytext);
 }
 
 <STR_BEGIN>{string} {
     LIST;
     STR_BUF;
-    //printf("yytext:%s state: str_begin\n", yytext);
+    //printf("yytext:\"%s\" state: str_begin\n", yytext);
 }
 
 . { // Unrecognized character
