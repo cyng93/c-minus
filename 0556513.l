@@ -5,12 +5,51 @@
 #define tokenString(t, s)   { LIST; if (Opt_Token) printf("<%s:%s>\n", t, s); }
 #define MAX_LINE_LENGTH 257
 #define MAX_ID_LENGTH 257
+    // #define DEBUG
+#ifdef DEBUG
+    #define DEBUG_PRINT(fmt, args...)    fprintf(stderr, fmt, ## args)
+#else
+    #define DEBUG_PRINT(fmt, args...)    /* Don't do anything in release builds */
+#endif
 int Opt_Source = 1;
 int Opt_Token = 1;
 int Opt_Statistic = 1;
 int linenum = 1;
 char buf[MAX_LINE_LENGTH];
 char str_buf[MAX_LINE_LENGTH];
+char *p;
+int *opt;
+
+struct node_t {
+    char str[MAX_LINE_LENGTH];
+    int cnt;
+    struct node_t* next;
+};
+typedef struct node_t Node;
+
+Node *link_t;
+
+void increase(char *str){
+    Node *p, *last;
+    Node *tmp;
+    p = link_t;
+    last = p;
+    p = p->next; // skip first one
+    while(p != NULL){
+        if(strcmp(p->str, str)==0){
+            p->cnt++;
+            return;
+        }
+        last = p;
+        p = p->next;
+    }
+    // connot find anyone
+    tmp = (Node *)malloc(sizeof(Node));
+    strncpy(tmp->str, str, MAX_LINE_LENGTH);
+    tmp->cnt = 1;
+    last->next = tmp;
+}
+
 %}
 
 nonzero_digit [1-9]
@@ -27,6 +66,7 @@ string ([\40-\41]|[\43-\133]|[\135-\176])*
 integer (0|{nonzero_digit}{digit}*)
 float ({digit}+\.{digit}+)
 scientific ({integer}|{float})[eE][+-]?[0]?{integer}
+pragma_string "#pragma"[ \t]+("source"|"statistic"|"token")[ \t]+("on"|"off")
 
 %Start STR_BEGIN STR_ESCAPE BLOCK_BEGIN
     //INITIAL
@@ -48,21 +88,51 @@ scientific ({integer}|{float})[eE][+-]?[0]?{integer}
     LIST;
 }
 
-<INITIAL>"/*" { // block comment start
+<INITIAL>"/*" { // block comment begin
     LIST;
     BEGIN(BLOCK_BEGIN);
-    //printf("yytext:\"%s\" state: block start\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: block begin\n", yytext);
 }
 
 <BLOCK_BEGIN>{printable} {  // in block comment
     LIST;
-    //printf("yytext:\"%s\" state: printable in block\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: printable in block\n", yytext);
 }
 
 <BLOCK_BEGIN>"*/" { // last two char of block comment
     LIST;
     BEGIN(INITIAL);
-    //printf("yytext:\"%s\" state: block end\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: block end\n", yytext);
+}
+
+<INITIAL>{pragma_string} {
+    LIST;
+    DEBUG_PRINT("yytext:\"%s\" pragma in!\n", yytext);
+    p = strtok(yytext, " \t");
+    
+    p = strtok(NULL, " \t");
+    if(strcmp(p, "source")==0){
+        opt = &Opt_Source;
+        DEBUG_PRINT("source ");
+    }
+    else if(strcmp(p, "statistic")==0){
+        opt = &Opt_Statistic;
+        DEBUG_PRINT("statistic ");
+    }
+    else if(strcmp(p, "token")==0){
+        opt = &Opt_Token;
+        DEBUG_PRINT("token ");
+    }
+    
+    p = strtok(NULL, " \t");
+    if(strcmp(p, "on")==0){
+        *opt = 1;
+        DEBUG_PRINT("on!\n");
+    }
+    else{
+        *opt = 0;
+        DEBUG_PRINT("off!\n");
+    }
 }
 
 <INITIAL>{delimiter} {
@@ -79,6 +149,7 @@ scientific ({integer}|{float})[eE][+-]?[0]?{integer}
 
 <INITIAL>{identifier} {
     tokenString("id", yytext);
+    increase(yytext);
 }
 
 <INITIAL>{integer} {
@@ -97,32 +168,32 @@ scientific ({integer}|{float})[eE][+-]?[0]?{integer}
     LIST;
     STR_BUF;
     BEGIN(STR_BEGIN);
-    //printf("yytext:\"%s\" state: str escape end\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: str escape end\n", yytext);
 }
 
 <STR_BEGIN>(\") { // end state
     BEGIN(INITIAL);
     tokenString("string", str_buf);
-    //printf("yytext:\"%s\" state: str end\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: str end\n", yytext);
 }
 
 <STR_BEGIN>(\\) { // when \ is found
     LIST;
     BEGIN(STR_ESCAPE);
-    //printf("yytext:\"%s\" state: str escape begin\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: str escape begin\n", yytext);
 }
 
 <INITIAL>(\") {
     LIST;
     BEGIN(STR_BEGIN);
     str_buf[0] = '\0';
-    //printf("yytext:\"%s\" state: str begin\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: str begin\n", yytext);
 }
 
 <STR_BEGIN>{string} {
     LIST;
     STR_BUF;
-    //printf("yytext:\"%s\" state: str_begin\n", yytext);
+    DEBUG_PRINT("yytext:\"%s\" state: str_begin\n", yytext);
 }
 
 . { // Unrecognized character
@@ -146,12 +217,23 @@ int main( int argc, char **argv )
     {
         yyin = stdin;
     }
+    link_t = (Node *)malloc(sizeof(Node));
+    link_t->str[0] = '\0';
+    link_t->cnt = 0;
+    link_t->next = NULL;
 
     yylex();
 
     if (Opt_Statistic)
     {
         // Print frequency table
+        printf("frequencies of identifiers:");
+        Node *p;
+        p = link_t->next;
+        while(p!=NULL){
+            printf("\n%s\t%d", p->str, p->cnt);
+            p = p->next;
+        }
     }
 
     exit(0);
