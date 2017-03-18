@@ -52,16 +52,12 @@
 <"*">
 <scientific:1.23e-1>
 <delim:;>
-10:	b = b*1.23e-1;
+10:		b = b*1.23e-1;
 
 <delim:}>
 11:    }
 
 <delim:}>
-12:}
-
-13:
-
 frequencies of identifiers:
 main	1
 a	3

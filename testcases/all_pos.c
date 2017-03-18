@@ -145,4 +145,15 @@ ident3
  * block comment wrap
  * across
  * lines.
+ haha
+ int
+ -
+ +
+ bla
+ while
+ main
+ 1+1
+ haha
+ !
+ ~
  */

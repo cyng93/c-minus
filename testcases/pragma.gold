@@ -1,0 +1,25 @@
+1:// test.c
+
+2://the pragma directive above turns off source code listing
+
+5:#pragma source on
+
+6://the pragma directive above turns off the identifiers statistics
+
+7:#pragma statistic off
+
+8://the pragma directive above turns on the identifiers statistics
+
+9:#pragma statistic on
+
+10://the pragma directive above turns off the token listing
+
+11:#pragma token off
+
+12://the pragma directive above turns on the token listing
+
+13:#pragma token on
+
+14:#pragma token on //comments
+
+frequencies of identifiers:

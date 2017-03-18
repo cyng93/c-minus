@@ -416,9 +416,29 @@
 
 147: * lines.
 
-148: */
+148: haha
 
-149:
+149: int
+
+150: -
+
+151: +
+
+152: bla
+
+153: while
+
+154: main
+
+155: 1+1
+
+156: haha
+
+157: !
+
+158: ~
+
+159: */
 
 frequencies of identifiers:
 ident	1
